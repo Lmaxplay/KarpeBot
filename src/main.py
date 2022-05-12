@@ -27,7 +27,11 @@ intents = nextcord.Intents.all()
 
 LOG = False
 
-bot = commands.Bot(command_prefix=["$", "\$"], intents=intents, owner_ids=[941433256010727484, 858390466617540638])
+autoResponses = {
+    "owo": "Don't OwO me",
+    "uwu": "Don't UwU me",
+}
+bot = commands.Bot(command_prefix=["!", "\\!"], intents=intents, owner_ids=[941433256010727484, 858390466617540638])
 
 # version variable
 version = "1.0.0"
@@ -48,8 +52,8 @@ Usage:
  - `about`
 """ )
 async def about(ctx: commands.context.Context):
-    embed = nextcord.Embed(title = f"About {bot.user.name}", description = f"""
-**{bot.user.name} version {version}**
+    embed = nextcord.Embed(title = f"About KarpeBot", description = f"""
+**KarpeBot version {version}**
 Running on {getOSVersion()}
 Python {getPythonVersion()}
 Nextcord {getNextcordVersion()}
@@ -349,7 +353,6 @@ async def thanks(ctx: commands.context.Context, member: commands.MemberConverter
     embed = nextcord.Embed(title = f"{ctx.author.name} has thanked {member.name}", description = "", color = nextcord.Colour(0x0088FF))
     await ctx.send(embed=embed)
 
-# Command that sends a message to all members of the server that it was sent in
 @bot.command(aliases=[], help="""
 Sends a message to all members of the server that it was sent in
 Usage:
@@ -368,24 +371,23 @@ async def botsend(ctx: commands.context.Context, *, message: str):
         except:
             pass
 
+# Karpe command
 @bot.command(aliases=[], help="""
-Causes an exception for testing purposes
+Karpe the specified user
 Usage:
-    - `exception`
+    - `karpe @user`
+    - `karpe <user id>`
 """)
-async def exception(ctx: commands.context.Context, *, message: str):
-    if not ctx.author.id in bot.owner_ids:
-        raise AuthenticationException()
+async def karpe(ctx: commands.context.Context, member: commands.MemberConverter):
+    if not member:
+        await ctx.send("Invalid user")
         return
-    if message == "DIV0":
-        1 / 0
-    elif message == "EXCEPTION":
-        raise Exception()
-    elif message == "AUTHENTICATION":
-        raise AuthenticationException()
-    elif message == "TYPE":
-        1 / 'a'
-    return
+    if member.guild != ctx.guild:
+        return
+    if member.id == bot.user.id:
+        await ctx.send("I cannot karpe myself")
+        return
+    await ctx.send(f"{member.name} has been karpe")
 
 bot.remove_command("help") # Remove default help command
 
@@ -456,7 +458,7 @@ async def on_ready():
 
     presence = nextcord.Activity()
     presence.application_id = 945283628018057287
-    presence.name = "Lmaxplay's server"
+    presence.name = "Fish"
     presence.url = "https://example.org"
     presence.type = nextcord.ActivityType.watching
     presence.buttons = nextcord.types.activity.ActivityButton()
@@ -488,7 +490,14 @@ async def on_message(message: nextcord.Message):
                 print(f"{Fore.CYAN}{attachment.url}{Fore.RESET}", end=" ")
             print()
 
+    
+    for (key, value) in autoResponses.items():
+        if key in message.content:
+            await message.channel.send(value)
+            break
+
     await bot.process_commands(message)
+
     return
 
 # On message edit
