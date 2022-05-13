@@ -3,6 +3,14 @@ import math
 import sys
 import datetime
 import time
+from time import sleep
+import re
+import yaml
+import pathlib
+import json
+import asyncio
+import yaml
+import random
 
 import atexit
 
@@ -14,27 +22,57 @@ import nextcord.ext.commands
 from nextcord.abc import Snowflake
 from nextcord.ext import commands
 import nextcord.abc
-import pathlib
-
-import asyncio
 
 from colorama import Fore, Back, Style
 
 from version import *
+
+from utils import *
+
 from exception import AuthenticationException
 
+save = {}
+
+async def addCoins(member, amount):
+    if not 'users' in save:
+        save['users'] = {}
+    if not member.id in save['users']:
+        save['users'][member.id] = {}
+    if not 'coins' in save['users'][member.id]:
+        save['users'][member.id]['coins'] = 0
+    save['users'][member.id]["coins"] += amount
+
+    # Save it
+    with open('save.yaml', 'w') as outfile:
+        yaml.dump(save, outfile)    
+
+def saveData():
+    with open('save.yaml', 'w') as outfile:
+        yaml.dump(save, outfile)
+
+def loadData():
+    global save
+    with open('save.yaml', 'r') as infile:
+        save = yaml.load(infile, Loader=yaml.FullLoader)
+
+# Open file save.yaml and load it into the save variable
+try:
+    with open('save.yaml', 'r') as f:
+        save = yaml.load(f, Loader=yaml.FullLoader)
+except FileNotFoundError:
+    print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} Could not find save.yaml. Creating it now.")
+    with open('save.yaml', 'w') as f:
+        yaml.dump(save, f)
 intents = nextcord.Intents.all()
 
 LOG = False
+coinname = "Karpcoins"
 
-autoResponses = {
-    "owo": "Don't OwO me",
-    "uwu": "Don't UwU me",
-}
-bot = commands.Bot(command_prefix=["!", "\\!"], intents=intents, owner_ids=[941433256010727484, 858390466617540638])
+autoResponses = {}
+version = Version(major=1, minor=1, patch=0)
 
-# version variable
-version = "1.0.0"
+bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484, 858390466617540638])
+
 
 @bot.command(
     aliases=["getping"],help="""
@@ -95,6 +133,8 @@ print("Hello world!")
     ,
     color = nextcord.Colour(0x0088FF)
     )
+
+    embed.set_footer(text = "Requested by " + ctx.author.name, icon_url = ctx.author.avatar.url)
     
     await ctx.send( embed=embed )
 
@@ -270,8 +310,13 @@ Reason:
 Deletes all messages in the specified channel
 Usage:
     - `purge <amount>`
+    - `purge <amount> <channel>`
+    - `purge <amount> <channel> <user>`
 """)
-async def purge(ctx: commands.context.Context, amount: int, user: nextcord.User = None):
+async def purge(ctx: commands.context.Context, amount: int, channel: nextcord.TextChannel = None, user: commands.MemberConverter = None):
+    if not channel:
+        channel = ctx.channel
+    
     if amount > 1000:
         await ctx.send("You cannot delete more than 100 messages")
         return
@@ -282,16 +327,15 @@ async def purge(ctx: commands.context.Context, amount: int, user: nextcord.User 
         return
 
     deleted = 0
-    print(user)
     if user == None:
-        await ctx.channel.purge(limit=amount, oldest_first=True)
+        await ctx.channel.purge(limit=amount, oldest_first=False)
         deleted = amount
     else:
-        async for message in (ctx.channel.history(limit=amount)):
-            if(message.author == user):
+        async for message in channel.history(limit=amount):
+            if message.author == user:
                 await message.delete()
                 deleted += 1
-    await ctx.send(f"Deleted {deleted} messages")
+    await ctx.send(f"Deleted {deleted} messages", delete_after=5)
 
 # Command to get the bot's uptime
 @bot.command(aliases=[], help="""
@@ -387,7 +431,123 @@ async def karpe(ctx: commands.context.Context, member: commands.MemberConverter)
     if member.id == bot.user.id:
         await ctx.send("I cannot karpe myself")
         return
-    await ctx.send(f"{member.name} has been karpe")
+    name = member.name
+    if member.nick:
+        name = member.nick
+
+    name = re.escape(name)
+    name = name.replace("\\ ", " ")
+    name = name.replace("_", r"\_")
+    await ctx.send(f"{name} has been karpe")
+
+@bot.command(aliases=[], help="""
+Adds coins to the specified user
+Usage:
+    - `addcoins @user <amount>`
+    - `addcoins <user id> <amount>`
+""")
+async def addcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+    if not member:
+        await ctx.send("Invalid user")
+        return
+    if member.guild != ctx.guild:
+        return
+    if not member.id:
+        await ctx.send("Invalid user")
+        return
+    if member.id == bot.user.id:
+        await ctx.send("I cannot add coins to myself")
+        return
+    if not ctx.author.guild_permissions.administrator:
+        return
+
+    await addCoins(member, amount)
+    await ctx.send(f"Added {amount} {coinname} to {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
+
+# Command to remove coins from a user
+@bot.command(aliases=[], help="""
+Removes coins from the specified user
+Usage:
+    - `removecoins @user <amount>`
+    - `removecoins <user id> <amount>`
+""")
+async def removecoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+    if not member:
+        await ctx.send("Invalid user")
+        return
+    if member.guild != ctx.guild:
+        return
+    if not member.id:
+        await ctx.send("Invalid user")
+        return
+    if member.id == bot.user.id:
+        await ctx.send("I cannot remove coins from myself")
+        return
+    if not ctx.author.guild_permissions.administrator:
+        return
+
+    await removeCoins(member, amount)
+    await ctx.send(f"Removed {amount} {coinname} from {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
+
+# Balance command
+@bot.command(aliases=['bal'], help="""
+Gets the balance of the specified user
+Usage:
+    - `balance @user`
+    - `balance <user id>`
+""")
+async def balance(ctx: commands.context.Context, member: commands.MemberConverter = None):
+    if not member:
+        member = ctx.author
+    if not member.id:
+        await ctx.send("Invalid user")
+        return
+    if member.guild != ctx.guild:
+        return
+    if member.id == bot.user.id:
+        await ctx.send("I cannot get the balance of myself")
+        return
+
+    # Check if the user data exists
+    if not member.id in save['users']:
+        save['users'][member.id] = {}
+        save['users'][member.id]['coins'] = 0
+    
+    if not 'coins' in save['users'][member.id]:
+        save['users'][member.id]['coins'] = 0
+    coins = save['users'][member.id]['coins']
+    await ctx.send(f"{member.name} has {coins} {coinname}")
+
+# Daily command
+@bot.command(aliases=[], help="""
+Gives you your daily coins
+Usage:
+    - `daily`
+""")
+async def daily(ctx: commands.context.Context):
+    daily_coins = random.randint(50, 100)
+    if not ctx.author.id in save['users']:
+        save['users'][ctx.author.id] = {}
+        save['users'][ctx.author.id]['coins'] = 0
+    if not 'daily' in save['users'][ctx.author.id]:
+        save['users'][ctx.author.id]['daily'] = 0
+    # Check if the user hasn't claimed their daily coins in the last 24 hours
+    if save['users'][ctx.author.id]['daily'] <= (time.time() - 86400):
+        await addCoins(ctx.author, daily_coins)
+        embed = nextcord.Embed(title = f"Daily coins", description = f"You have received {daily_coins} {coinname}", color = nextcord.Colour(0x0088FF))
+        embed.set_footer(text=f"You can claim your daily coins again in 24 hours")
+        await ctx.send(embed=embed)
+        save['users'][ctx.author.id]['daily'] = time.time()
+    else:
+        embed = nextcord.Embed(title = f"Daily coins", description = f"You have already claimed your daily coins today", color = nextcord.Colour(0x0088FF))
+        # Format the time left
+        time_left = 86400 - (time.time() - save['users'][ctx.author.id]['daily'])
+        hours = int(time_left / 3600)
+        minutes = int((time_left % 3600) / 60)
+        seconds = int(time_left % 60)
+        embed.set_footer(text=f"You can claim your daily coins again in {hours}:{minutes}:{seconds}")
+        await ctx.send(embed=embed)
+    saveData()
 
 bot.remove_command("help") # Remove default help command
 
@@ -475,6 +635,9 @@ async def on_typing(channel: nextcord.abc.Messageable, user: nextcord.User, when
     # print("User " + user.name + " started typing")
     return
 
+# Variable for the last time someone sent a message
+lastMessageTime = {}
+
 @bot.event
 async def on_message(message: nextcord.Message):
     if message.author.bot:
@@ -482,6 +645,19 @@ async def on_message(message: nextcord.Message):
     #   await message.channel.send(message.content[::-1])
     if message.author == bot.user:
         return
+    
+    # If they haven't chatted in the last 60 seconds, give them between 10 and 20 coins
+    if message.author.id in lastMessageTime:
+        if time.time() - lastMessageTime[message.author.id] >= 60:
+            # Give them between 10 and 20 coins
+            coins = random.randint(10, 20)
+            await addCoins(message.author, coins)
+            nick = message.author.nick
+            if nick == None:
+                nick = message.author.name
+            # await message.channel.send(f"{nick} has been given {coins} {coinname}")
+    else:
+        lastMessageTime[message.author.id] = time.time()
     
     if LOG:
         print(f'{Fore.RED}#{message.channel.name} {Fore.YELLOW}"{message.guild.name}" {Fore.GREEN}{message.author.display_name}> {Fore.CYAN}{message.content}{Fore.RESET}'.replace("\n", "\\n"))
