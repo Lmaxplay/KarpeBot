@@ -9,7 +9,6 @@ import yaml
 import pathlib
 import json
 import asyncio
-import yaml
 import random
 import traceback
 
@@ -55,6 +54,7 @@ def loadData():
     global save
     with open('save.yaml', 'r') as infile:
         save = yaml.load(infile, Loader=yaml.FullLoader)
+        save['users'][859837779936935936] = None
 
 # Open file save.yaml and load it into the save variable
 try:
@@ -63,7 +63,7 @@ try:
 except FileNotFoundError:
     print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} Could not find save.yaml. Creating it now.")
     with open('save.yaml', 'w') as f:
-        yaml.dump(save, f)
+        yaml.dump(save, f, )
 intents = nextcord.Intents.all()
 
 LOG = False

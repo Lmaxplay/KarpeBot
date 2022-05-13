@@ -13,3 +13,4 @@ python-dotenv==0.20.0
 python-minifier==2.6.0
 PyYAML==6.0
 yarl==1.7.2
+cryptography==37.0.2
