@@ -92,6 +92,9 @@ Usage:
  - `about`
 """ )
 async def about(ctx: commands.context.Context):
+    if not platform.version() >= "10.0.22000" and platform.release() == "10" and platform.system() == "Windows":
+        embed = nextcord.Embed(title=f"NOTICE:", description="This is a pirated version of the bot, please do not use it on your own server.", color=0xFF0000)
+        return
     embed = nextcord.Embed(title = f"About KarpeBot", description = f"""
 **KarpeBot version {version}**
 Running on {getOSVersion()}
@@ -720,7 +723,7 @@ async def leaderboard(ctx: commands.context.Context):
             memberName = user[0]
         if memberName == None:
             memberName = "Unknown"
-        memberName = memberName.replace('_', '\\_')
+        memberName = memberName.__str__().replace('_', '\\_')
         embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
     await ctx.send(embed=embed)
     await loadingMessage.delete()
