@@ -804,9 +804,9 @@ async def on_webhooks_update(channel: nextcord.TextChannel):
 
 # On close of application, close the bot
 @atexit.register
-def close():
+async def close():
     print("Closing bot")
-    bot.close()
+    await bot.close()
 
 print(Fore.CYAN + "Bot starting" + Fore.RESET)
 
