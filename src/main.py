@@ -70,7 +70,7 @@ LOG = False
 coinname = "Karpcoins"
 
 autoResponses = {}
-version = Version(major=1, minor=1, patch=0)
+version = Version(major=1, minor=2, patch=0)
 
 bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484])
 
@@ -494,6 +494,36 @@ async def removecoins(ctx: commands.context.Context, member: commands.MemberConv
     await addCoins(member, -amount)
     await ctx.send(f"Removed {amount} {coinname} from {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
 
+# Command to set the amount of coins a user has
+@bot.command(aliases=['setcash', 'setmoney'], help="""
+Sets the amount of coins a user has
+Usage:
+    - `setcoins @user <amount>`
+    - `setcoins <user id> <amount>`
+""")
+async def setcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+    if not member:
+        await ctx.send("Invalid user")
+        return
+    if member.guild != ctx.guild:
+        return
+    if not member.id:
+        await ctx.send("Invalid user")
+        return
+    if member.id == bot.user.id:
+        await ctx.send("I cannot set coins for myself")
+        return
+    # Only bot.owners can change coins
+    if ctx.author.id in bot.owner_ids:
+        pass
+    else:
+        await ctx.send("You do not have the permission `BOT.OWNER`")
+        return
+    
+    save['users'][member.id]['coins'] = amount
+    await addCoins(member, 0)
+    await ctx.send(f"Set {member.name}'s coins to {amount}")
+
 # Balance command
 @bot.command(aliases=['bal'], help="""
 Gets the balance of the specified user
@@ -555,12 +585,14 @@ async def daily(ctx: commands.context.Context):
     saveData()
 
 # Leaderboard command
-@bot.command(aliases=[], help="""
+@bot.command(aliases=['baltop', 'top'], help="""
 Gets the top 10 users with the most coins
 Usage:
     - `leaderboard`
 """)
 async def leaderboard(ctx: commands.context.Context):
+    loadingEmbed = nextcord.Embed(title = "Loading...", color = nextcord.Colour(0x0088FF), description = "Please wait whilst the leaderboard is being loaded")
+    loadingMessage = await ctx.send(embed=loadingEmbed)
     # Get the top 10 users
     users = save['users']
     # Turn the users object into a list
@@ -575,16 +607,24 @@ async def leaderboard(ctx: commands.context.Context):
         # Make the memberName variable
         # Try getting the member name from every guild the bot is in
         memberName = None
+        gotName = False
         for guild in bot.guilds:
             try:
                 memberName = guild.get_member(user[0]).name + "#" + guild.get_member(user[0]).discriminator
                 if user[0] in bot.owner_ids:
-                    memberName = "`[Owner]` " + memberName
-                if memberName:
-                    break
+                    memberName = "`[Bot Owner]` " + memberName
             except:
                 pass
-        #memberName = ctx.guild.get_member(user[0])
+        memberNameGuild = ctx.guild.get_member(user[0])
+        if memberNameGuild:
+            if user[0] == ctx.guild.owner_id:
+                memberName = "`[Server Owner]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
+            else:
+                memberName = "`[Server]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
+            if memberNameGuild.nick:
+                memberName += " (" + memberName + ")"
+            if user[0] in bot.owner_ids:
+                memberName = "`[Bot Owner]` " + memberName
         if not memberName:
             memberName = user[0]
         if memberName == None:
@@ -592,6 +632,7 @@ async def leaderboard(ctx: commands.context.Context):
         memberName = memberName.replace('_', '\\_')
         embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinname}", inline = False)
     await ctx.send(embed=embed)
+    await loadingMessage.delete()
 
 bot.remove_command("help") # Remove default help command
 
