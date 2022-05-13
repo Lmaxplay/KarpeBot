@@ -69,7 +69,116 @@ intents = nextcord.Intents.all()
 LOG = False
 coinName = "Karpcoins"
 
-autoResponses = {}
+autoResponses = {
+    "Rickroll": """
+We're no strangers to love
+You know the rules and so do I (do I)
+A full commitment's what I'm thinking of
+You wouldn't get this from any other guy
+I just wanna tell you how I'm feeling
+Gotta make you understand
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+We've known each other for so long
+Your heart's been aching, but you're too shy to say it (say it)
+Inside, we both know what's been going on (going on)
+We know the game and we're gonna play it
+And if you ask me how I'm feeling
+Don't tell me you're too blind to see
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+We've known each other for so long
+Your heart's been aching, but you're too shy to say it (to say it)
+Inside, we both know what's been going on (going on)
+We know the game and we're gonna play it
+I just wanna tell you how I'm feeling
+Gotta make you understand
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+Never gonna give you up
+Never gonna let you down
+Never gonna run around and desert you
+Never gonna make you cry
+Never gonna say goodbye
+Never gonna tell a lie and hurt you
+    """,
+    "Together forever": """
+If there's anything you need
+All you have to do is say so
+You know you satisfy everything in me
+We shouldn't waste a single day
+So don't stop me falling
+It's destiny calling
+A power I just can't deny
+It's never changing
+Can't you hear me, I'm saying
+I want you for the rest of my life
+Together forever and never to part
+Together forever we two
+And don't you know
+I would move heaven and earth
+To be together forever with you
+If they ever get you down
+There's always something I can do
+Because I wouldn't ever wanna see you frown
+I'll always do what's best for you
+There ain't no mistaking
+It's true love we're making
+Something to last for all time
+It's never changing
+Can't you hear me, I'm saying
+I want you for the rest of my life
+Together forever and never to part
+Together forever we two
+And don't you know
+I would move heaven and earth
+To be together forever with you
+So don't stop me falling
+It's destiny calling
+A power I just can't deny
+It's never changing
+Can't you hear me, I'm saying
+I want you for the rest of my life
+Together forever and never to part
+Together forever we two
+And don't you know
+I would move heaven and earth
+To be together forever with you
+Together forever and never to part
+Together forever we two
+And don't you know
+I would move heaven and earth
+To be together forever with you
+Together forever and never to part
+Together forever we two
+And don't you know
+I would move heaven and earth
+To be together forever with you"""
+}
 version = Version(major=1, minor=2, patch=0)
 
 bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484])
@@ -196,8 +305,9 @@ async def kick(ctx: commands.context.Context, member: commands.MemberConverter, 
     if not ctx.author.guild_permissions.kick_members:
         return
 
-    embed = nextcord.Embed(title = f"You have been kicked from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
-    await member.send(embed=embed)
+    if not member.bot:
+        embed = nextcord.Embed(title = f"You have been kicked from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
+        await member.send(embed=embed)
 
     await member.kick(reason=reason)
 
@@ -246,8 +356,9 @@ async def ban(ctx: commands.context.Context, member: commands.MemberConverter = 
         await ctx.send("I cannot ban myself")
         return
 
-    embed = nextcord.Embed(title = f"You have been kicked from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
-    await member.send(embed=embed)
+    if not member.bot:
+        embed = nextcord.Embed(title = f"You have been banned from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
+        await member.send(embed=embed)
 
     await member.ban(reason=reason)
     
@@ -260,6 +371,97 @@ Reason:
 """.format(
     member.mention,
     reason
+    ), color=nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
+
+# Klck command (fake kick)
+
+@bot.command( aliases=[], help="""
+Kicks the specified user
+Usage:
+    - `klck @user <reason>`
+""")
+async def klck(ctx: commands.context.Context, member: commands.MemberConverter, *, reason: str = "No reason specified"):
+    #if member is invalid, return and give an error
+    if not member:
+        await ctx.send("Invalid user")
+        return
+    if member.guild != ctx.guild:
+        return
+    if ctx.author.top_role.position <= member.top_role.position:
+        await ctx.send("You cannot kick this user")
+        return
+
+    #prevent the bot from kicking itself
+    if member.id == bot.user.id:
+        await ctx.send("I cannot kick myself")
+        return
+
+    if not ctx.author.guild_permissions.kick_members:
+        return
+
+    if not member.bot:
+        embed = nextcord.Embed(title = f"You have been kicked from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
+        await member.send(embed=embed)
+
+    embed = nextcord.Embed(title = f"{member.name} has been kicked", description = """
+User {0} has been kicked
+Reason:
+```
+{1}
+```
+""".format(
+    member.mention,
+    reason
+    ), color=nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
+
+@bot.command( aliases=[], help="""
+Bans the specified user
+Usage:
+    - `bon @user <reason>`
+    - `bon <user id> <reason>`
+""")
+async def bon(ctx: commands.context.Context, member: commands.MemberConverter = None, *, reason: str = "No reason specified"):
+    member: nextcord.member = member
+    #if member is invalid, return and give an error
+    if not member:
+        embed = nextcord.Embed(title = f"Invalid user", description = "Please specify a valid user", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+    if member.guild != ctx.guild:
+        return
+    
+    # If user is not a mod or higher, return
+    if not ctx.author.guild_permissions.ban_members:
+        embed = nextcord.Embed(title = f"You do not have permission to ban this user", description = "You must be a mod or higher to ban this user\nOr have the permission to ban members", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+
+    # do we have a higher role than the user?
+    if ctx.author.top_role.position <= member.top_role.position:
+        embed = nextcord.Embed(title = f"You do not have permission to ban this user", description = "You need to have a higher role than the user to ban them", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+
+    #prevent the bot from banning itself
+    if member.id == bot.user.id:
+        await ctx.send("I cannot ban myself")
+        return
+
+    if not member.bot:
+        embed = nextcord.Embed(title = f"You have been banned from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
+        await member.send(embed=embed)
+    
+    embed = nextcord.Embed(title = f"{member.name} has been banned", description = """
+User {0} has been banned
+Reason:
+```
+{1}
+```
+""".format(
+        member.mention,
+        reason
     ), color=nextcord.Colour(0x0088FF))
     await ctx.send(embed=embed)
 
@@ -289,12 +491,9 @@ async def unban(ctx: commands.context.Context, member: commands.MemberConverter,
     if not ctx.author.guild_permissions.ban_members:
         return
 
-    embed = nextcord.Embed(title = f"You have been kicked from {ctx.guild.name}", description = "Reason:```\n{reason}```", color = nextcord.Colour(0x0088FF))
-    await member.send(embed=embed)
-
-    await member.ban(reason=reason)
+    await member.unban(reason=reason)
     
-    embed = nextcord.Embed(title = f"{member.name} has been banned", description = """
+    embed = nextcord.Embed(title = f"{member.name} has been unbanned", description = """
 User {0} has been banned
 Reason:
 ```
@@ -645,7 +844,9 @@ Usage:
 async def help(ctx: commands.context.Context, commandname: str = ""):
     if commandname == "":
         helpstr = ""
-        for command in bot.commands:
+        # Sort the commands alphabetically
+        commands = sorted(bot.commands, key=lambda x: x.name)
+        for command in commands:
             if command.name == "help":
                 continue
             if len(command.aliases) != 0:
@@ -787,7 +988,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description=f"```py\n{str(error)}\n```")
             await ctx.send(embed=embed)
             return
-    embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description=f"```py\n{str(error)}\n```\n```py\n{traceback.format_exc()}\n```")
+    embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description=f"```py\n{str(error)}\n```")
     await ctx.send(embed=embed)
     await ctx.message.add_reaction("⚠️")
 
