@@ -67,7 +67,7 @@ except FileNotFoundError:
 intents = nextcord.Intents.all()
 
 LOG = False
-coinname = "Karpcoins"
+coinName = "Karpcoins"
 
 autoResponses = {}
 version = Version(major=1, minor=2, patch=0)
@@ -463,7 +463,7 @@ async def addcoins(ctx: commands.context.Context, member: commands.MemberConvert
         return
 
     await addCoins(member, amount)
-    await ctx.send(f"Added {amount} {coinname} to {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
+    await ctx.send(f"Added {amount} {coinName} to {member.name}\nThey now have {save['users'][member.id]['coins']} {coinName}")
 
 # Command to remove coins from a user
 @bot.command(aliases=['removecash', 'removemoney'], help="""
@@ -492,7 +492,7 @@ async def removecoins(ctx: commands.context.Context, member: commands.MemberConv
         return
 
     await addCoins(member, -amount)
-    await ctx.send(f"Removed {amount} {coinname} from {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
+    await ctx.send(f"Removed {amount} {coinName} from {member.name}\nThey now have {save['users'][member.id]['coins']} {coinName}")
 
 # Command to set the amount of coins a user has
 @bot.command(aliases=['setcash', 'setmoney'], help="""
@@ -551,7 +551,7 @@ async def balance(ctx: commands.context.Context, member: commands.MemberConverte
     if not 'coins' in save['users'][member.id]:
         save['users'][member.id]['coins'] = 0
     coins = save['users'][member.id]['coins']
-    await ctx.send(f"{member.name} has {coins} {coinname}")
+    await ctx.send(f"{member.name} has {coins} {coinName}")
 
 # Daily command
 @bot.command(aliases=[], help="""
@@ -569,7 +569,7 @@ async def daily(ctx: commands.context.Context):
     # Check if the user hasn't claimed their daily coins in the last 24 hours
     if save['users'][ctx.author.id]['daily'] <= (time.time() - 86400):
         await addCoins(ctx.author, daily_coins)
-        embed = nextcord.Embed(title = f"Daily coins", description = f"You have received {daily_coins} {coinname}", color = nextcord.Colour(0x0088FF))
+        embed = nextcord.Embed(title = f"Daily coins", description = f"You have received {daily_coins} {coinName}", color = nextcord.Colour(0x0088FF))
         embed.set_footer(text=f"You can claim your daily coins again in 24 hours")
         await ctx.send(embed=embed)
         save['users'][ctx.author.id]['daily'] = time.time()
@@ -630,7 +630,7 @@ async def leaderboard(ctx: commands.context.Context):
         if memberName == None:
             memberName = "Unknown"
         memberName = memberName.replace('_', '\\_')
-        embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinname}", inline = False)
+        embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
     await ctx.send(embed=embed)
     await loadingMessage.delete()
 
@@ -733,16 +733,14 @@ async def on_message(message: nextcord.Message):
     
     # If they haven't chatted in the last 60 seconds, give them between 10 and 20 coins
     if message.author.id in lastMessageTime:
-        if time.time() - lastMessageTime[message.author.id] >= 60:
-            # Give them between 10 and 20 coins
-            coins = random.randint(10, 20)
+        if time.time() - lastMessageTime[message.author.id] >= 60 * 60 and random.randint(0, 100) <= 20:
+            lastMessageTime[message.author.id] = time.time()
+            coins = random.randint(1, 10)
             await addCoins(message.author, coins)
             nick = message.author.nick
             if nick == None:
                 nick = message.author.name
-            # await message.channel.send(f"{nick} has been given {coins} {coinname}")
-    else:
-        lastMessageTime[message.author.id] = time.time()
+            # await message.channel.send(f"{nick} has been given {coins} {coinName}")
     
     if LOG:
         print(f'{Fore.RED}#{message.channel.name} {Fore.YELLOW}"{message.guild.name}" {Fore.GREEN}{message.author.display_name}> {Fore.CYAN}{message.content}{Fore.RESET}'.replace("\n", "\\n"))
