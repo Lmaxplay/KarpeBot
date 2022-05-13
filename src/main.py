@@ -58,8 +58,7 @@ def loadData():
 
 # Open file save.yaml and load it into the save variable
 try:
-    with open('save.yaml', 'r') as f:
-        save = yaml.load(f, Loader=yaml.FullLoader)
+    loadData()
 except FileNotFoundError:
     print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} Could not find save.yaml. Creating it now.")
     with open('save.yaml', 'w') as f:
