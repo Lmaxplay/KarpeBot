@@ -69,116 +69,8 @@ intents = nextcord.Intents.all()
 LOG = False
 coinName = "Karpcoins"
 
-autoResponses = {
-    "Rickroll": """
-We're no strangers to love
-You know the rules and so do I (do I)
-A full commitment's what I'm thinking of
-You wouldn't get this from any other guy
-I just wanna tell you how I'm feeling
-Gotta make you understand
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-We've known each other for so long
-Your heart's been aching, but you're too shy to say it (say it)
-Inside, we both know what's been going on (going on)
-We know the game and we're gonna play it
-And if you ask me how I'm feeling
-Don't tell me you're too blind to see
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-We've known each other for so long
-Your heart's been aching, but you're too shy to say it (to say it)
-Inside, we both know what's been going on (going on)
-We know the game and we're gonna play it
-I just wanna tell you how I'm feeling
-Gotta make you understand
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-Never gonna give you up
-Never gonna let you down
-Never gonna run around and desert you
-Never gonna make you cry
-Never gonna say goodbye
-Never gonna tell a lie and hurt you
-    """,
-    "Together forever": """
-If there's anything you need
-All you have to do is say so
-You know you satisfy everything in me
-We shouldn't waste a single day
-So don't stop me falling
-It's destiny calling
-A power I just can't deny
-It's never changing
-Can't you hear me, I'm saying
-I want you for the rest of my life
-Together forever and never to part
-Together forever we two
-And don't you know
-I would move heaven and earth
-To be together forever with you
-If they ever get you down
-There's always something I can do
-Because I wouldn't ever wanna see you frown
-I'll always do what's best for you
-There ain't no mistaking
-It's true love we're making
-Something to last for all time
-It's never changing
-Can't you hear me, I'm saying
-I want you for the rest of my life
-Together forever and never to part
-Together forever we two
-And don't you know
-I would move heaven and earth
-To be together forever with you
-So don't stop me falling
-It's destiny calling
-A power I just can't deny
-It's never changing
-Can't you hear me, I'm saying
-I want you for the rest of my life
-Together forever and never to part
-Together forever we two
-And don't you know
-I would move heaven and earth
-To be together forever with you
-Together forever and never to part
-Together forever we two
-And don't you know
-I would move heaven and earth
-To be together forever with you
-Together forever and never to part
-Together forever we two
-And don't you know
-I would move heaven and earth
-To be together forever with you"""
-}
+autoResponses = {}
+
 version = Version(major=1, minor=2, patch=0)
 
 bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484])
@@ -376,7 +268,7 @@ Reason:
 
 # Klck command (fake kick)
 
-@bot.command( aliases=[], help="""
+@bot.command( aliases=['k¡ck'], help="""
 Kicks the specified user
 Usage:
     - `klck @user <reason>`
