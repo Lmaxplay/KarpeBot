@@ -72,7 +72,7 @@ coinname = "Karpcoins"
 autoResponses = {}
 version = Version(major=1, minor=1, patch=0)
 
-bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484, 858390466617540638])
+bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484])
 
 
 @bot.command(
@@ -441,7 +441,7 @@ async def karpe(ctx: commands.context.Context, member: commands.MemberConverter)
     name = name.replace("_", r"\_")
     await ctx.send(f"{name} has been karpe")
 
-@bot.command(aliases=[], help="""
+@bot.command(aliases=['addcash', 'addmoney'], help="""
 Adds coins to the specified user
 Usage:
     - `addcoins @user <amount>`
@@ -466,7 +466,7 @@ async def addcoins(ctx: commands.context.Context, member: commands.MemberConvert
     await ctx.send(f"Added {amount} {coinname} to {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
 
 # Command to remove coins from a user
-@bot.command(aliases=[], help="""
+@bot.command(aliases=['removecash', 'removemoney'], help="""
 Removes coins from the specified user
 Usage:
     - `removecoins @user <amount>`
@@ -484,10 +484,14 @@ async def removecoins(ctx: commands.context.Context, member: commands.MemberConv
     if member.id == bot.user.id:
         await ctx.send("I cannot remove coins from myself")
         return
-    if not ctx.author.guild_permissions.administrator:
+    # Only bot.owners can change coins
+    if ctx.author.id in bot.owner_ids:
+        pass
+    else:
+        await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
-    await removeCoins(member, amount)
+    await addCoins(member, -amount)
     await ctx.send(f"Removed {amount} {coinname} from {member.name}\nThey now have {save['users'][member.id]['coins']} {coinname}")
 
 # Balance command
@@ -561,16 +565,32 @@ async def leaderboard(ctx: commands.context.Context):
     users = save['users']
     # Turn the users object into a list
     users = list(users.items())
-    await ctx.send(users)
     # Sort the list by the coins
-    users.sort(key=lambda x: users[1][1]["coins"])
+    users.sort(key=lambda x: x[1]["coins"], reverse=True)
 
-    await ctx.send(sorted_values)
     # Create the embed
-    embed = nextcord.Embed(title = f"Top 10 users", color = nextcord.Colour(0x0088FF))
+    embed = nextcord.Embed(title = f"Leaderboard (Top {min(10, users.__len__())} / {users.__len__()})", color = nextcord.Colour(0x0088FF))
     # Add the top 10 users
     for i, user in enumerate(users):
-        embed.add_field(name = f"{i}", value=f"{user[0]}", inline = False)
+        # Make the memberName variable
+        # Try getting the member name from every guild the bot is in
+        memberName = None
+        for guild in bot.guilds:
+            try:
+                memberName = guild.get_member(user[0]).name + "#" + guild.get_member(user[0]).discriminator
+                if user[0] in bot.owner_ids:
+                    memberName = "`[Owner]` " + memberName
+                if memberName:
+                    break
+            except:
+                pass
+        #memberName = ctx.guild.get_member(user[0])
+        if not memberName:
+            memberName = user[0]
+        if memberName == None:
+            memberName = "Unknown"
+        memberName = memberName.replace('_', '\\_')
+        embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinname}", inline = False)
     await ctx.send(embed=embed)
 
 bot.remove_command("help") # Remove default help command
