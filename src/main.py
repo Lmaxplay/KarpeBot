@@ -11,6 +11,7 @@ import json
 import asyncio
 import random
 import traceback
+import hashlib
 
 import atexit
 
@@ -54,7 +55,6 @@ def loadData():
     global save
     with open('save.yaml', 'r') as infile:
         save = yaml.load(infile, Loader=yaml.FullLoader)
-        save['users'][859837779936935936] = None
 
 # Open file save.yaml and load it into the save variable
 try:
