@@ -1,0 +1,4 @@
+nextcord=2.0.0
+pyyaml=3.11
+python-dotenv=0.10.3
+colorama=0.4.3
