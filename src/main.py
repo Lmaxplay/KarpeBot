@@ -11,6 +11,7 @@ import json
 import asyncio
 import yaml
 import random
+import traceback
 
 import atexit
 
@@ -549,6 +550,29 @@ async def daily(ctx: commands.context.Context):
         await ctx.send(embed=embed)
     saveData()
 
+# Leaderboard command
+@bot.command(aliases=[], help="""
+Gets the top 10 users with the most coins
+Usage:
+    - `leaderboard`
+""")
+async def leaderboard(ctx: commands.context.Context):
+    # Get the top 10 users
+    users = save['users']
+    # Turn the users object into a list
+    users = list(users.items())
+    await ctx.send(users)
+    # Sort the list by the coins
+    users.sort(key=lambda x: users[1][1]["coins"])
+
+    await ctx.send(sorted_values)
+    # Create the embed
+    embed = nextcord.Embed(title = f"Top 10 users", color = nextcord.Colour(0x0088FF))
+    # Add the top 10 users
+    for i, user in enumerate(users):
+        embed.add_field(name = f"{i}", value=f"{user[0]}", inline = False)
+    await ctx.send(embed=embed)
+
 bot.remove_command("help") # Remove default help command
 
 @bot.command( help="""
@@ -701,10 +725,10 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError):
             await ctx.send(embed=embed)
             return
         else:
-            embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description="```py\n" + str(error) + "\n```")
+            embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description=f"```py\n{str(error)}\n```")
             await ctx.send(embed=embed)
             return
-    embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description="```py\n" + str(error) + "\n```")
+    embed = nextcord.Embed(color=nextcord.Colour(0xFF0000), title="An error occured", description=f"```py\n{str(error)}\n```\n```py\n{traceback.format_exc()}\n```")
     await ctx.send(embed=embed)
     await ctx.message.add_reaction("⚠️")
 
