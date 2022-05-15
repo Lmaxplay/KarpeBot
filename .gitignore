@@ -4,5 +4,7 @@ __pycache__
 
 save.json
 save.yaml
+*save*.*
+!*save*.py
 
 *.env

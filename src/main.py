@@ -5,7 +5,7 @@ import datetime
 import time
 from time import sleep
 import re
-import yaml
+import ruamel.yaml as yaml
 import pathlib
 import json
 import asyncio
@@ -32,7 +32,9 @@ from utils import *
 
 from exception import AuthenticationException
 
-save = {}
+save: yaml.YAMLObject = {}
+
+yml = yaml.YAML()
 
 async def addCoins(member, amount):
     if not 'users' in save:
@@ -45,16 +47,25 @@ async def addCoins(member, amount):
 
     # Save it
     with open('save.yaml', 'w') as outfile:
-        yaml.dump(save, outfile)    
+        yml.dump(save, outfile)
 
 def saveData():
     with open('save.yaml', 'w') as outfile:
-        yaml.dump(save, outfile)
+        yml.dump(save, outfile)
 
 def loadData():
     global save
     with open('save.yaml', 'r') as infile:
-        save = yaml.load(infile, Loader=yaml.FullLoader)
+        save = yml.load(infile)
+
+def getPrefix(bot: commands.Bot, message: nextcord.Message):
+    if message.guild:
+        if message.guild.id in save['guilds']:
+            if 'prefix' in save['guilds'][message.guild.id]:
+                return save['guilds'][message.guild.id]['prefix']
+    else:
+        return "$"
+    return "$"
 
 # Open file save.yaml and load it into the save variable
 try:
@@ -62,7 +73,7 @@ try:
 except FileNotFoundError:
     print(f"{Fore.RED}[ERROR]{Style.RESET_ALL} Could not find save.yaml. Creating it now.")
     with open('save.yaml', 'w') as f:
-        yaml.dump(save, f, )
+        yaml.dump(save, f)
 intents = nextcord.Intents.all()
 
 LOG = False
@@ -72,8 +83,7 @@ autoResponses = {}
 
 version = Version(major=1, minor=2, patch=0)
 
-bot = commands.Bot(command_prefix=["!", "\\!", "$", "\\$"], intents=intents, owner_ids=[941433256010727484])
-
+bot = commands.Bot(command_prefix=(getPrefix), intents=intents, owner_ids=[941433256010727484])
 
 @bot.command(
     aliases=["getping"],help="""
@@ -83,7 +93,8 @@ Usage:
 """ 
 )
 async def ping(ctx: commands.context.Context):
-    await ctx.send("Pong!\nLatency is " + str(math.floor(bot.latency * 1000) / 1000) + " seconds")
+    embed = nextcord.Embed(title="Pong!", description=f"{ctx.bot.latency * 1000:.0f}ms", color=0x00ff00)
+    await ctx.send(embed=embed)
 
 @bot.command(aliases=["version"], help="""
 Gets the bots about page
@@ -549,7 +560,9 @@ async def addcoins(ctx: commands.context.Context, member: commands.MemberConvert
     if member.id == bot.user.id:
         await ctx.send("I cannot add coins to myself")
         return
-    if not ctx.author.guild_permissions.administrator:
+    # Only bot owners can change coins
+    if ctx.author.id in bot.owner_ids:
+        await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
     await addCoins(member, amount)
@@ -574,10 +587,8 @@ async def removecoins(ctx: commands.context.Context, member: commands.MemberConv
     if member.id == bot.user.id:
         await ctx.send("I cannot remove coins from myself")
         return
-    # Only bot.owners can change coins
+    # Only bot owners can change coins
     if ctx.author.id in bot.owner_ids:
-        pass
-    else:
         await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
@@ -603,13 +614,17 @@ async def setcoins(ctx: commands.context.Context, member: commands.MemberConvert
     if member.id == bot.user.id:
         await ctx.send("I cannot set coins for myself")
         return
-    # Only bot.owners can change coins
+    # Only bot owners can change coins
     if ctx.author.id in bot.owner_ids:
-        pass
-    else:
         await ctx.send("You do not have the permission `BOT.OWNER`")
         return
-    
+
+    # Check if save['users'][member.id] exists
+    if not member.id in save['users']:
+        save['users'][member.id] = {}
+        save['users'][member.id]['coins'] = 0
+    if not 'coins' in save['users'][member.id]:
+        save['users'][member.id]['coins'] = 0
     save['users'][member.id]['coins'] = amount
     await addCoins(member, 0)
     await ctx.send(f"Set {member.name}'s coins to {amount}")
@@ -650,7 +665,7 @@ Usage:
     - `daily`
 """)
 async def daily(ctx: commands.context.Context):
-    daily_coins = random.randint(50, 100)
+    daily_coins = random.randint(90, 100)
     if not ctx.author.id in save['users']:
         save['users'][ctx.author.id] = {}
         save['users'][ctx.author.id]['coins'] = 0
@@ -767,7 +782,7 @@ async def help(ctx: commands.context.Context, commandname: str = ""):
                 color = nextcord.Colour(0x0088FF)
             )
 
-            embed._footer = helpcommand.parent
+            embed.set_footer(helpcommand.parent)
 
             print(helpcommand.module)
             #if embed.description == "None":
@@ -790,8 +805,7 @@ async def on_ready():
     # Store the bot's uptime
     startTime = time.time()
 
-    bot.command_prefix.append(bot.user.mention.replace('@', '@!') + " ")
-    bot.command_prefix.append(bot.user.mention.replace('@', '@!'))
+    # bot.command_prefix.append(bot.user.mention.replace('@', '@!'))
 
     presence = nextcord.Activity()
     presence.application_id = 945283628018057287
@@ -817,6 +831,7 @@ lastMessageTime = {}
 
 @bot.event
 async def on_message(message: nextcord.Message):
+    # Check if the message is the ping message
     if message.author.bot:
         return
     #   await message.channel.send(message.content[::-1])
@@ -897,6 +912,8 @@ async def on_webhooks_update(channel: nextcord.TextChannel):
 async def close():
     print("Closing bot")
     await bot.close()
+    print("Bot closed")
+    await close()
 
 print(Fore.CYAN + "Bot starting" + Fore.RESET)
 
