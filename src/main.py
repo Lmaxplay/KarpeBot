@@ -64,7 +64,9 @@ def getPrefix(bot: commands.Bot, message: nextcord.Message):
             if 'prefix' in save['guilds'][message.guild.id]:
                 return save['guilds'][message.guild.id]['prefix']
     else:
-        return "$"
+        if 0 in save['guilds']:
+            if 'prefix' in save['guilds'][0]:
+                return save['guilds'][0]['prefix']
     return "$"
 
 # Open file save.yaml and load it into the save variable
@@ -125,12 +127,12 @@ Usage:
 async def format(ctx: commands.context.Context):
     embed = nextcord.Embed(title = f"How to format code", description = """
 Use
-\\`\\`\\`<language>
-
+\\`\\`\\`
+<code>
 \\`\\`\\`
 this will result in
 ```
-print("Hello world!")
+print("Hello world!") # This is an example
 ```
 add syntax highlighting by replacing <language> with for example, for python:
 `python`
@@ -141,8 +143,7 @@ this was achieved by typing
 \\`\\`\\`python
 print("Hello world!")
 \\`\\`\\`
-    """
-    ,
+    """,
     color = nextcord.Colour(0x0088FF)
     )
 
@@ -150,39 +151,6 @@ print("Hello world!")
     
     await ctx.send( embed=embed )
 
-@bot.command(aliases=[], help="""
-Gets the bots prefix
-Usage:
- - `about`
-""" )
-async def prefix(ctx: commands.context.Context):
-    prefixarr = [] + bot.command_prefix
-    try:
-        prefixarr.pop(prefixarr.index(bot.user.mention.replace('@', '@!')))
-    except:
-        prefixarr
-    try:
-        prefixarr.pop(prefixarr.index(bot.user.mention.replace('@', '@!') + " "))
-    except:
-        prefixarr
-    embed = nextcord.Embed(title = f"{bot.user.name}'s prefixes", description = """
-```
-{0}
-```
-    """.format (
-        "\n".join(prefixarr)
-    ),
-    color = nextcord.Colour(0x0088FF)
-    )
-
-    if len(bot.command_prefix) == 1:
-        embed.title = f"{bot.user.name}'s prefix"
-    
-    #embed.set_image(url=f"{bot.user.display_avatar.url}?size=64")
-    
-    await ctx.send( embed=embed )
-
-# create a kick command that kicks the specified user
 @bot.command( aliases=[], help="""
 Kicks the specified user
 Usage:
@@ -420,7 +388,7 @@ async def purge(ctx: commands.context.Context, amount: int, channel: nextcord.Te
         channel = ctx.channel
     
     if amount > 1000:
-        await ctx.send("You cannot delete more than 100 messages")
+        await ctx.send("You cannot delete more than 1000 messages")
         return
     if amount < 1:
         await ctx.send("You cannot delete less than 1 message")
@@ -561,7 +529,7 @@ async def addcoins(ctx: commands.context.Context, member: commands.MemberConvert
         await ctx.send("I cannot add coins to myself")
         return
     # Only bot owners can change coins
-    if ctx.author.id in bot.owner_ids:
+    if not ctx.author.id in bot.owner_ids:
         await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
@@ -588,7 +556,7 @@ async def removecoins(ctx: commands.context.Context, member: commands.MemberConv
         await ctx.send("I cannot remove coins from myself")
         return
     # Only bot owners can change coins
-    if ctx.author.id in bot.owner_ids:
+    if not ctx.author.id in bot.owner_ids:
         await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
@@ -615,7 +583,7 @@ async def setcoins(ctx: commands.context.Context, member: commands.MemberConvert
         await ctx.send("I cannot set coins for myself")
         return
     # Only bot owners can change coins
-    if ctx.author.id in bot.owner_ids:
+    if not ctx.author.id in bot.owner_ids:
         await ctx.send("You do not have the permission `BOT.OWNER`")
         return
 
@@ -738,6 +706,71 @@ async def leaderboard(ctx: commands.context.Context):
         embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
     await ctx.send(embed=embed)
     await loadingMessage.delete()
+
+# Server info command
+@bot.command(aliases=['server'], help="""
+Gets the server info
+Usage:
+    - `serverinfo`
+""")
+async def serverinfo(ctx: commands.context.Context):
+    # Get the guild
+    guild = ctx.guild
+
+    embed = nextcord.Embed(title = f"Server info for {guild.name}", color = nextcord.Colour(0x0088FF))
+    embed.add_field(name = "Server ID", value = guild.id, inline = False)
+    embed.add_field(name = "Server owner", value = guild.owner.name + "#" + guild.owner.discriminator, inline = False)
+    embed.add_field(name = "Server created at", value = guild.created_at.strftime("%d/%m/%Y %H:%M:%S"), inline = False)
+    embed.add_field(name = "Server member count", value = guild.member_count, inline = False)
+    embed.add_field(name = "Server verification level", value = guild.verification_level, inline = False)
+    # Get nitro tier
+    if guild.premium_tier == 0:
+        nitroTier = "None"
+    elif guild.premium_tier == 1:
+        nitroTier = "Tier 1"
+    elif guild.premium_tier == 2:
+        nitroTier = "Tier 2"
+    elif guild.premium_tier == 3:
+        nitroTier = "Tier 3"
+    elif guild.premium_tier == 4:
+        nitroTier = "Nitro Classic"
+    elif guild.premium_tier == 5:
+        nitroTier = "Nitro"
+    embed.add_field(name = "Server nitro tier", value = nitroTier, inline = False)
+    embed.set_image(url=guild.icon)
+
+    await ctx.send(embed=embed)
+
+# Slowmode command
+@bot.command(aliases=['sm'], help="""
+Sets the slowmode for the server
+Usage:
+    - `slowmode <seconds>`
+""")
+async def slowmode(ctx: commands.context.Context, seconds: int):
+    # Check if the user has the permission to use this command
+    if not ctx.author.guild_permissions.manage_messages:
+        embed = nextcord.Embed(title = "Slowmode", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    # Check if the user has the permission to use this command
+    if not ctx.author.guild_permissions.manage_channels:
+        embed = nextcord.Embed(title = "Slowmode", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    
+    # Check if the input is valid
+    if seconds < 0 or seconds > 21600:
+        embed = nextcord.Embed(title = "Invalid delay", description = "The delay should be between 0 and 21600", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+
+    # Set the slowmode
+    await ctx.channel.edit(slowmode_delay=seconds)
+
+    # Create the embed
+    embed = nextcord.Embed(title = "Slowmode", description = f"The slowmode has been set to {seconds} seconds", color = nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
 
 bot.remove_command("help") # Remove default help command
 
