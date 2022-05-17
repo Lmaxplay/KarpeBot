@@ -12,6 +12,9 @@ import asyncio
 import random
 import traceback
 import hashlib
+import numexpr
+import sympy
+import numpy
 
 import atexit
 
@@ -516,7 +519,7 @@ Usage:
     - `addcoins @user <amount>`
     - `addcoins <user id> <amount>`
 """)
-async def addcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+async def addcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: float):
     if not member:
         await ctx.send("Invalid user")
         return
@@ -543,7 +546,7 @@ Usage:
     - `removecoins @user <amount>`
     - `removecoins <user id> <amount>`
 """)
-async def removecoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+async def removecoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: float):
     if not member:
         await ctx.send("Invalid user")
         return
@@ -570,7 +573,7 @@ Usage:
     - `setcoins @user <amount>`
     - `setcoins <user id> <amount>`
 """)
-async def setcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: int):
+async def setcoins(ctx: commands.context.Context, member: commands.MemberConverter, amount: float):
     if not member:
         await ctx.send("Invalid user")
         return
@@ -653,10 +656,82 @@ async def daily(ctx: commands.context.Context):
         hours = int(time_left / 3600)
         minutes = int((time_left % 3600) / 60)
         seconds = int(time_left % 60)
-        embed.set_footer(text=f"You can claim your daily coins again in {hours}:{minutes}:{seconds}")
+        timeString = datetime.time(hours, minutes, seconds).strftime("%H:%M:%S")
+
+        embed.set_footer(text=f"You can claim your daily coins again in {timeString}")
         await ctx.send(embed=embed)
     saveData()
 
+# Coinflip command
+@bot.command(aliases=['coinflip'], help="""
+Flips a coin and gives you either heads or tails
+Usage:
+    - `coinflip`
+""")
+async def coin(ctx: commands.context.Context):
+    # Get a random number between 0 and 1
+    coin = random.randint(0, 1)
+    if coin <= 0.5:
+        await ctx.send("Heads")
+    else:
+        await ctx.send("Tails")
+
+# Cashflip command
+@bot.command(aliases=['cashflip'], help="""
+Flips a coin and gives you either heads or tails
+You can bet on heads or tails
+Usage:
+    - `cashflip <amount> <heads/tails>`
+""")
+async def cash(ctx: commands.context.Context, amount: float, bet: str):
+    # Check if the bet is heads or tails
+    if not bet.lower() in ['heads', 'tails']:
+        await ctx.send("Invalid bet")
+        return
+    bet = bet.lower()
+    # Generate a random number between 0 and 1
+    coin = random.randint(0, 1)
+
+    # Check if the user has enough coins
+    if not ctx.author.id in save['users']:
+        save['users'][ctx.author.id] = {}
+        save['users'][ctx.author.id]['coins'] = 0
+    if not 'coins' in save['users'][ctx.author.id]:
+        save['users'][ctx.author.id]['coins'] = 0
+    if save['users'][ctx.author.id]['coins'] < amount:
+        embed=nextcord.Embed(title="Cashflip", description=f"You don't have enough coins to bet {amount} {coinName}", color=nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+
+    if coin <= 0.5:
+        coin = 1
+    else:
+        coin = 0
+    # Check if the user has enough coins
+    if not ctx.author.id in save['users']:
+        save['users'][ctx.author.id] = {}
+        save['users'][ctx.author.id]['coins'] = 0
+    if not 'coins' in save['users'][ctx.author.id]:
+        save['users'][ctx.author.id]['coins'] = 0
+
+    coinStr = "Heads"
+    if coin >= 0.5:
+        coinStr = "Tails"
+    embed = nextcord.Embed(title = f"Cashflip: {coinStr}", description = f"You have flipped a coin and got {coinStr}", color = nextcord.Colour(0x0088FF))
+
+    # Check if the user won or lost
+    if coin <= 0.5 and bet == "heads":
+        await addCoins(ctx.author, amount * 0.75)
+        embed.set_footer(text=f"A 25% fee has been taken from your winnings")
+        embed.description = f"You won {amount * 0.75} {coinName}"
+    elif coin >= 0.5 and bet == "tails":
+        await addCoins(ctx.author, amount * 0.75)
+        embed.set_footer(text=f"A 25% fee has been taken from your winnings")
+        embed.description = f"You won {amount * 0.75} {coinName}"
+    else:
+        await addCoins(ctx.author, -amount)
+        embed.description = f"You lost {amount} {coinName}"
+    await ctx.send(embed=embed)
 # Leaderboard command
 @bot.command(aliases=['baltop', 'top'], help="""
 Gets the top 10 users with the most coins
@@ -671,39 +746,64 @@ async def leaderboard(ctx: commands.context.Context):
     # Turn the users object into a list
     users = list(users.items())
     # Sort the list by the coins
-    users.sort(key=lambda x: x[1]["coins"], reverse=True)
+
+    errors = 0
+
+    def sort_by_coins(user):
+        try:
+            # Check if the user data exists
+            if not user[0] in save['users']:
+                save['users'][user[0]] = {}
+                save['users'][user[0]]['coins'] = 0
+            if not 'coins' in save['users'][user[0]]:
+                save['users'][user[0]]['coins'] = 0
+            return user[1]['coins']
+        except:
+            nonlocal errors
+            print(f"Error: {user}")
+            errors += 1
+            return 0
+
+    users.sort(key=sort_by_coins, reverse=True)
+
 
     # Create the embed
     embed = nextcord.Embed(title = f"Leaderboard (Top {min(10, users.__len__())} / {users.__len__()})", color = nextcord.Colour(0x0088FF))
     # Add the top 10 users
     for i, user in enumerate(users):
-        # Make the memberName variable
-        # Try getting the member name from every guild the bot is in
-        memberName = None
-        gotName = False
-        for guild in bot.guilds:
-            try:
-                memberName = guild.get_member(user[0]).name + "#" + guild.get_member(user[0]).discriminator
+        try:
+            # Make the memberName variable
+            # Try getting the member name from every guild the bot is in
+            if i >= 10:
+                break
+            memberName = None
+            gotName = False
+            for guild in bot.guilds:
+                try:
+                    memberName = guild.get_member(user[0]).name + "#" + guild.get_member(user[0]).discriminator
+                    if user[0] in bot.owner_ids:
+                        memberName = "`[Bot Owner]` " + memberName
+                except:
+                    pass
+            memberNameGuild = ctx.guild.get_member(user[0])
+            if memberNameGuild:
+                if user[0] == ctx.guild.owner_id:
+                    memberName = "`[Server Owner]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
+                else:
+                    memberName = "`[Server]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
+                if memberNameGuild.nick:
+                    # Append the name to the member name
+                    memberName = memberName + " (" + memberNameGuild.nick + ")"
                 if user[0] in bot.owner_ids:
                     memberName = "`[Bot Owner]` " + memberName
-            except:
-                pass
-        memberNameGuild = ctx.guild.get_member(user[0])
-        if memberNameGuild:
-            if user[0] == ctx.guild.owner_id:
-                memberName = "`[Server Owner]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
-            else:
-                memberName = "`[Server]` " + memberNameGuild.name + "#" + memberNameGuild.discriminator
-            if memberNameGuild.nick:
-                memberName += " (" + memberName + ")"
-            if user[0] in bot.owner_ids:
-                memberName = "`[Bot Owner]` " + memberName
-        if not memberName:
-            memberName = user[0]
-        if memberName == None:
-            memberName = "Unknown"
-        memberName = memberName.__str__().replace('_', '\\_')
-        embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
+            if not memberName:
+                memberName = user[0]
+            if memberName == None:
+                memberName = "Unknown"
+            memberName = memberName.__str__().replace('_', '\\_')
+            embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
+        except:
+            pass
     await ctx.send(embed=embed)
     await loadingMessage.delete()
 
@@ -770,6 +870,60 @@ async def slowmode(ctx: commands.context.Context, seconds: int):
 
     # Create the embed
     embed = nextcord.Embed(title = "Slowmode", description = f"The slowmode has been set to {seconds} seconds", color = nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
+
+# Command to calculate math expressions
+@bot.command(help="""
+Calculates math expressions using the python package `numexpr`.
+Usage:
+    - `numexpr <expression>`
+""")
+async def numexpr(ctx: commands.context.Context, *, expression: str):
+    # Check if the user has the permission to use this command
+    if not ctx.author.id in bot.owner_ids:
+        embed = nextcord.Embed(title = "Numexpr error", description = "You do not have the permission to use this command", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+    
+    # Calculate the expression
+    try:
+        result = numexpr.evaluate(expression).item()
+    except Exception as e:
+        embed = nextcord.Embed(title = "Numexpr Error", description = f"The expression could not be calculated: {e}", color = nextcord.Colour(0xFF0000))
+        await ctx.send(embed=embed)
+        return
+    
+    embed = nextcord.Embed(title = "Calc", description = f"The result is: {result}", color = nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
+
+
+# Solve command
+@bot.command(aliases=[], help="""
+Solves an equation for variables
+Usage:
+    - `solve <equation>`
+""")
+async def solve(ctx: commands.context.Context, *, equation: str):
+    # Only bot owners may use it for now as it may cause code injection
+    if not ctx.author.id in bot.owner_ids:
+        embed = nextcord.Embed(title = "Solve", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+
+    # If the equation is inside a code block, remove it
+    if equation.startswith("```") and equation.endswith("```"):
+        equation = equation[3:-3]
+    # If its inside single quotes, remove them
+    elif equation.startswith("'") and equation.endswith("'"):
+        equation = equation[1:-1]
+
+    # Remove any trailing whitespace/newlines
+    # equation = equation.strip()
+
+    result = sympy.solve(equation)
+
+    # Create the embed
+    embed = nextcord.Embed(title = "Solve", description = f"The result is:\n```\n{result}```", color = nextcord.Colour(0x0088FF))
     await ctx.send(embed=embed)
 
 bot.remove_command("help") # Remove default help command
