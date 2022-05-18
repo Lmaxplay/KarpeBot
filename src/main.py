@@ -83,6 +83,7 @@ intents = nextcord.Intents.all()
 
 LOG = False
 coinName = "Karpcoins"
+maintanananceMode = False
 
 autoResponses = {}
 
@@ -642,7 +643,7 @@ async def daily(ctx: commands.context.Context):
         save['users'][ctx.author.id]['coins'] = 0
     if not 'daily' in save['users'][ctx.author.id]:
         save['users'][ctx.author.id]['daily'] = 0
-    # Check if the user hasn't claimed their daily coins in the last 24 hours
+    # Check if the user has already claimed their daily today (compare the current day)
     if save['users'][ctx.author.id]['daily'] <= (time.time() - 86400):
         await addCoins(ctx.author, daily_coins)
         embed = nextcord.Embed(title = f"Daily coins", description = f"You have received {daily_coins} {coinName}", color = nextcord.Colour(0x0088FF))
@@ -663,12 +664,12 @@ async def daily(ctx: commands.context.Context):
     saveData()
 
 # Coinflip command
-@bot.command(aliases=['coinflip'], help="""
+@bot.command(aliases=['cf'], help="""
 Flips a coin and gives you either heads or tails
 Usage:
     - `coinflip`
 """)
-async def coin(ctx: commands.context.Context):
+async def coinflip(ctx: commands.context.Context):
     # Get a random number between 0 and 1
     coin = random.randint(0, 1)
     if coin <= 0.5:
@@ -677,13 +678,13 @@ async def coin(ctx: commands.context.Context):
         await ctx.send("Tails")
 
 # Cashflip command
-@bot.command(aliases=['cashflip'], help="""
+@bot.command(aliases=['moneyflip'], help="""
 Flips a coin and gives you either heads or tails
 You can bet on heads or tails
 Usage:
     - `cashflip <amount> <heads/tails>`
 """)
-async def cash(ctx: commands.context.Context, amount: float, bet: str):
+async def cashflip(ctx: commands.context.Context, amount: float, bet: str):
     # Check if the bet is heads or tails
     if not bet.lower() in ['heads', 'tails']:
         await ctx.send("Invalid bet")
@@ -700,6 +701,17 @@ async def cash(ctx: commands.context.Context, amount: float, bet: str):
         save['users'][ctx.author.id]['coins'] = 0
     if save['users'][ctx.author.id]['coins'] < amount:
         embed=nextcord.Embed(title="Cashflip", description=f"You don't have enough coins to bet {amount} {coinName}", color=nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    
+    if amount <= 0:
+        embed=nextcord.Embed(title="Cashflip", description="You must bet more than 0 coins", color=nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    
+    # Is amount infinite or nan?
+    if math.isnan(amount) or math.isinf(amount):
+        embed=nextcord.Embed(title="Cashflip", description="You must bet more than 0 coins", color=nextcord.Colour(0x0088FF))
         await ctx.send(embed=embed)
         return
 
@@ -732,6 +744,65 @@ async def cash(ctx: commands.context.Context, amount: float, bet: str):
         await addCoins(ctx.author, -amount)
         embed.description = f"You lost {amount} {coinName}"
     await ctx.send(embed=embed)
+
+# Pay command
+@bot.command(aliases=[], help="""
+Pay someone
+Usage:
+    - `pay <user> <amount>`
+""")
+async def pay(ctx: commands.context.Context, user: nextcord.Member, amount: float):
+    
+    originalAmount = amount
+    # Check if save['bank']['tax']['payment'] exists
+    if not 'bank' in save:
+        save['bank'] = {}
+    if not 'tax' in save['bank']:
+        save['bank']['tax'] = {}
+    if not 'payment' in save['bank']['tax']:
+        save['bank']['tax']['payment'] = 0
+    tax = save['bank']['tax']['payment']
+
+    if tax < 0:
+        tax = 0
+    
+    # Round tax to 2 decimal places
+    tax = round(tax, 2)
+
+    # Tax the transaction
+    amount = amount * (100 + tax) / 100
+    # Check if the user has enough coins
+    if not ctx.author.id in save['users']:
+        save['users'][ctx.author.id] = {}
+        save['users'][ctx.author.id]['coins'] = 0
+    if not 'coins' in save['users'][ctx.author.id]:
+        save['users'][ctx.author.id]['coins'] = 0
+    if save['users'][ctx.author.id]['coins'] < amount:
+        embed=nextcord.Embed(title="Pay", description=f"You don't have enough coins to pay {amount} {coinName}", color=nextcord.Colour(0x0088FF))
+        embed.set_footer(text=f"You have {save['users'][ctx.author.id]['coins']} {coinName}, {tax}% tax has been taken")
+        await ctx.send(embed=embed)
+        return
+    
+    if amount <= 0.1:
+        embed=nextcord.Embed(title="Pay", description="You must pay more than 0.1 coins", color=nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    
+    # Is amount infinite or nan?
+    if math.isnan(amount) or math.isinf(amount):
+        embed=nextcord.Embed(title="Pay", description="You must pay more than 0 coins", color=nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    
+    # Pay the user
+    await addCoins(ctx.author, -originalAmount)
+    await addCoins(user, originalAmount)
+    taxed = amount - originalAmount
+    # Round taxed to 2 decimal places
+    taxed = round(taxed, 3)
+    embed=nextcord.Embed(title="Payment succesfull", description=f"You have paid {user.name} {originalAmount} {coinName}\n({taxed} {coinName} have been taxed)", color=nextcord.Colour(0x0088FF))
+    await ctx.send(embed=embed)
+
 # Leaderboard command
 @bot.command(aliases=['baltop', 'top'], help="""
 Gets the top 10 users with the most coins
@@ -781,8 +852,6 @@ async def leaderboard(ctx: commands.context.Context):
             for guild in bot.guilds:
                 try:
                     memberName = guild.get_member(user[0]).name + "#" + guild.get_member(user[0]).discriminator
-                    if user[0] in bot.owner_ids:
-                        memberName = "`[Bot Owner]` " + memberName
                 except:
                     pass
             memberNameGuild = ctx.guild.get_member(user[0])
@@ -794,14 +863,17 @@ async def leaderboard(ctx: commands.context.Context):
                 if memberNameGuild.nick:
                     # Append the name to the member name
                     memberName = memberName + " (" + memberNameGuild.nick + ")"
-                if user[0] in bot.owner_ids:
-                    memberName = "`[Bot Owner]` " + memberName
             if not memberName:
                 memberName = user[0]
+            if user[0] in bot.owner_ids:
+                memberName = "`[Bot Owner]` " + memberName
+
             if memberName == None:
                 memberName = "Unknown"
             memberName = memberName.__str__().replace('_', '\\_')
-            embed.add_field(name = f"{i + 1}. {memberName}", value=f"{user[1]['coins']} {coinName}", inline = False)
+            coins: float = user[1]['coins']
+            coinsStr = coins.__str__().replace("inf", "Infinity")
+            embed.add_field(name = f"{i + 1}. {memberName}", value=f"{coinsStr} {coinName}", inline = False)
         except:
             pass
     await ctx.send(embed=embed)
@@ -934,8 +1006,14 @@ Usage:
  - `help`
  - `help <commandname>`
 """ )
-async def help(ctx: commands.context.Context, commandname: str = ""):
-    if commandname == "":
+async def help(ctx: commands.context.Context, command: str = "", arg1: str = ""):
+    if command == "" or command.lower() == "help":
+        # Get own description
+        description = bot.get_command("help").description
+        embed = nextcord.Embed(title = "Help subcommands:", description = bot.get_command('help').description, color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    if command.lower() == "list":
         helpstr = ""
         # Sort the commands alphabetically
         commands = sorted(bot.commands, key=lambda x: x.name)
@@ -952,14 +1030,16 @@ async def help(ctx: commands.context.Context, commandname: str = ""):
             color = nextcord.Colour(0x0088FF)
         )
         await ctx.send(embed=embed)
-    else:
+    elif command == "command":
         helpcommand = None
         for command in bot.commands:
-            if command.name == commandname:
+            if command.hidden:
+                continue
+            if command.name == arg1:
                 helpcommand = command
             else:
                 for alias in command.aliases:
-                    if alias == commandname:
+                    if alias == arg1:
                         helpcommand = command
         
         if helpcommand != None:
@@ -969,19 +1049,82 @@ async def help(ctx: commands.context.Context, commandname: str = ""):
                 color = nextcord.Colour(0x0088FF)
             )
 
-            embed.set_footer(helpcommand.parent)
+            embed.set_footer(text=helpcommand.hidden)
 
             print(helpcommand.module)
-            #if embed.description == "None":
-            #    embed.description = "This command has no help description"
+            if embed.description == "None":
+                embed.description = "This command has no help description"
             await ctx.send(embed=embed)
         else:
             embed = nextcord.Embed(
-                title = f"Command not found",
+                title = f"Help - Command not found",
                 description = "This command doesn't exist, or you might have misspelled it",
                 color = nextcord.Colour(0x0088FF)
             )
             await ctx.send(embed=embed)
+    elif command.lower() == "search":
+        # Search for a command, searching if it occurs in the name or in the aliases
+        searchstr = arg1.lower()
+        commands = sorted(bot.commands, key=lambda x: x.name)
+        foundcommands = []
+        for command in commands:
+            name: str = command.name.lower()
+            aliases: list = command.aliases
+            if name.find(searchstr) != -1:
+                foundcommands.append(command)
+            for alias in aliases:
+                if alias.find(searchstr) != -1:
+                    foundcommands.append(command)
+        
+        if len(foundcommands) == 0:
+            embed = nextcord.Embed(
+                title = "Help - Search",
+                description = "No commands with this query were found",
+                color = nextcord.Colour(0x0088FF)
+            )
+            await ctx.send(embed=embed)
+        else:
+            # Remove duplicates
+            foundcommands = list(dict.fromkeys(foundcommands))
+            embed = nextcord.Embed(
+                title = "Help - Search results",
+                description = " - " + "\n - ".join([f"**{command.name} ({', '.join(command.aliases)})**" for command in foundcommands]),
+                color = nextcord.Colour(0x0088FF)
+            )
+            await ctx.send(embed=embed)
+
+    else:
+        embed = nextcord.Embed(
+            title = f"Help - Command not found",
+            description = "This subcommand doesn't exist, or you might have misspelled it",
+            color = nextcord.Colour(0x0088FF)
+        )
+        await ctx.send(embed=embed)
+
+# Print command (prints the message to the console)
+@bot.command(help="""
+Prints the message to the console
+Usage:
+    - `print <message>`
+""")
+async def printmsg(ctx: commands.context.Context, *, message: str):
+    # Only bot owners may use it
+    if not ctx.author.id in bot.owner_ids:
+        embed = nextcord.Embed(title = "Print", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+
+    # If the message is inside a code block, remove it
+    if message.startswith("```") and message.endswith("```"):
+        message = message[3:-3]
+    # If its inside single quotes, remove them
+    elif message.startswith("'") and message.endswith("'"):
+        message = message[1:-1]
+
+    # Remove any trailing whitespace/newlines
+    # message = message.strip()
+
+    print(message)
 
 startTime = time.time()
 
@@ -1049,7 +1192,19 @@ async def on_message(message: nextcord.Message):
             await message.channel.send(value)
             break
 
-    await bot.process_commands(message)
+    # Is the message from an owner?
+    if maintanananceMode and message.author.id != bot.owner.id: 
+        if message.author.id in bot.owner_ids:
+            await bot.process_commands(message)
+        else:
+            embed = nextcord.Embed(
+                title = "Error",
+                description = "The bot is currently in maintanance mode",
+                color = nextcord.Colour(0xFFFF00)
+            )
+            await message.channel.send(embed=embed)
+    else:
+        await bot.process_commands(message)
 
     return
 
