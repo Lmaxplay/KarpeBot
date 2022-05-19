@@ -867,7 +867,12 @@ async def leaderboard(ctx: commands.context.Context):
                 memberName = user[0]
             if user[0] in bot.owner_ids:
                 memberName = "`[Bot Owner]` " + memberName
-
+            
+            if 'ranks' in save:
+                for rank in save['ranks']:
+                    if user[0] in save['ranks'][rank]:
+                        memberName = f"`[{rank}]` {memberName}"
+                        break
             if memberName == None:
                 memberName = "Unknown"
             memberName = memberName.__str__().replace('_', '\\_')
@@ -944,6 +949,34 @@ async def slowmode(ctx: commands.context.Context, seconds: int):
     embed = nextcord.Embed(title = "Slowmode", description = f"The slowmode has been set to {seconds} seconds", color = nextcord.Colour(0x0088FF))
     await ctx.send(embed=embed)
 
+# Raid command
+@bot.command(aliases=[], help="""
+Raid a hub (announces it)
+Usage:
+    - `raid <hub> <time>`
+""")
+async def raid(ctx: commands.context.Context, hub: str, intime: int = 3600):
+    # Check if the user has the permission to use this command
+    if not ctx.author.guild_permissions.manage_messages:
+        embed = nextcord.Embed(title = "Raid", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+    # Check if the user has the permission to use this command
+    if not ctx.author.guild_permissions.manage_channels:
+        embed = nextcord.Embed(title = "Raid", description = "You do not have the permission to use this command", color = nextcord.Colour(0x0088FF))
+        await ctx.send(embed=embed)
+        return
+
+    # Creates an event lasting for the given time
+    event = ctx.guild.create_scheduled_event(end_time=datetime.time().fold + intime, name = f"Raid {hub}", start_time=datetime.time(), entity_type=nextcord.ScheduledEventEntityType.external, description=f"Raiding {hub}")
+
+    # Create the embed
+    # IntimeStr is the time in the format of "HH:MM"
+    intimeStr = str(datetime.timedelta(seconds=intime))
+    embed = nextcord.Embed(title = "RAID", description = f"{hub.capitalize()} is being raided for {intimeStr}!", color = nextcord.Colour(0x0088FF))
+    await ctx.send("<@&976488038786035772>", embed=embed)
+    await ctx.message.delete()
+
 # Command to calculate math expressions
 @bot.command(help="""
 Calculates math expressions using the python package `numexpr`.
@@ -967,7 +1000,6 @@ async def numexpr(ctx: commands.context.Context, *, expression: str):
     
     embed = nextcord.Embed(title = "Calc", description = f"The result is: {result}", color = nextcord.Colour(0x0088FF))
     await ctx.send(embed=embed)
-
 
 # Solve command
 @bot.command(aliases=[], help="""
@@ -1003,14 +1035,22 @@ bot.remove_command("help") # Remove default help command
 @bot.command( help="""
 Gives help about commands,
 Usage:
- - `help`
- - `help <commandname>`
+ - `help command <commandname>` - Shows the help for a specific command
+ - `help list` - Shows a list of all commands
+ - `help search <searchterm>` - Searches for commands
+ - `help query <query>` - Searches for commands
 """ )
 async def help(ctx: commands.context.Context, command: str = "", arg1: str = ""):
     if command == "" or command.lower() == "help":
         # Get own description
         description = bot.get_command("help").description
-        embed = nextcord.Embed(title = "Help subcommands:", description = bot.get_command('help').description, color = nextcord.Colour(0x0088FF))
+        embed = nextcord.Embed(title = "Help subcommands:", description = """
+ - `help` - Shows this message
+ - `help command <commandname>` - Shows the help for a specific command
+ - `help list` - Shows a list of all commands
+ - `help search <searchterm>` - Searches for commands
+ - `help query <query>` - Searches for commands
+        """, color = nextcord.Colour(0x0088FF))
         await ctx.send(embed=embed)
         return
     if command.lower() == "list":
@@ -1030,7 +1070,7 @@ async def help(ctx: commands.context.Context, command: str = "", arg1: str = "")
             color = nextcord.Colour(0x0088FF)
         )
         await ctx.send(embed=embed)
-    elif command == "command":
+    elif command.lower() == "command":
         helpcommand = None
         for command in bot.commands:
             if command.hidden:
@@ -1062,7 +1102,7 @@ async def help(ctx: commands.context.Context, command: str = "", arg1: str = "")
                 color = nextcord.Colour(0x0088FF)
             )
             await ctx.send(embed=embed)
-    elif command.lower() == "search":
+    elif command.lower() == "search" or command.lower() == "query":
         # Search for a command, searching if it occurs in the name or in the aliases
         searchstr = arg1.lower()
         commands = sorted(bot.commands, key=lambda x: x.name)
@@ -1102,7 +1142,7 @@ async def help(ctx: commands.context.Context, command: str = "", arg1: str = "")
         await ctx.send(embed=embed)
 
 # Print command (prints the message to the console)
-@bot.command(help="""
+@bot.command(aliases=["print"], help="""
 Prints the message to the console
 Usage:
     - `print <message>`
