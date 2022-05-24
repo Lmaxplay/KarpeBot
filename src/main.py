@@ -1207,7 +1207,7 @@ async def on_message(message: nextcord.Message):
     #   await message.channel.send(message.content[::-1])
     if message.author == bot.user:
         return
-    
+
     # If they haven't chatted in the last 60 seconds, give them between 10 and 20 coins
     if message.author.id in lastMessageTime:
         if time.time() - lastMessageTime[message.author.id] >= 60 * 60 and random.randint(0, 100) <= 20:
